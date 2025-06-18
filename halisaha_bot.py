@@ -109,100 +109,100 @@ class TargetedTestBrowser:
             return False
     
     def navigate_to_target_week(self):
-    """25 Haziran'ın olduğu haftaya git - IMPROVED TIMING"""
-    try:
-        logging.info(f"🗓️ Hedef haftayı arıyor: {self.target_date}")
-        
-        # Alert handling
+        """25 Haziran'ın olduğu haftaya git - IMPROVED TIMING"""
         try:
-            alert = self.driver.switch_to.alert
-            alert.dismiss()
-            logging.info("🚨 Alert kapatıldı")
-        except:
-            pass
-        
-        # Sayfa refresh
-        self.driver.refresh()
-        time.sleep(2)  # 1→2 saniye - sayfa yüklenmesi için
-        
-        # Maksimum 5 hafta ileriye git
-        for week_attempt in range(5):
+            logging.info(f"🗓️ Hedef haftayı arıyor: {self.target_date}")
+            
+            # Alert handling
             try:
-                # IMPROVED: Mevcut hafta aralığını oku - element'in yüklenmesini bekle
-                current_week_element = WebDriverWait(self.driver, 10).until(
-                    EC.presence_of_element_located((By.CLASS_NAME, "yonlendirme-info"))
-                )
-                
-                # Element text'inin boş olmamasını bekle
-                current_week = ""
-                for text_wait in range(5):  # 5 kez dene
-                    current_week = current_week_element.text.strip()
-                    if current_week:  # Boş değilse
-                        break
-                    time.sleep(0.5)  # 0.5 saniye bekle ve tekrar dene
-                
-                logging.info(f"📅 Hafta #{week_attempt+1}: '{current_week}'")
-                
-                # Eğer hala boşsa, daha uzun bekle
-                if not current_week:
-                    logging.warning(f"⚠️ Hafta metni boş, 2 saniye daha bekleniyor...")
-                    time.sleep(2)
-                    current_week = current_week_element.text.strip()
-                    logging.info(f"📅 Hafta #{week_attempt+1} (retry): '{current_week}'")
-                
-                # Hedef tarih bu hafta aralığında mı?
-                if current_week and is_target_date_in_week(self.target_date, current_week):
-                    logging.info(f"✅ HEDEF HAFTA BULUNDU! {current_week}")
-                    return True
-                
-                # Değilse sonraki hafta - IMPROVED TIMING
-                logging.info(f"➡️ Sonraki haftaya geçiliyor...")
-                
-                # Önceki hafta bilgisini sakla (değişiklik kontrolü için)
-                previous_week = current_week
-                
-                next_week_button = self.driver.find_element(By.ID, "area-sonraki-hafta")
-                self.driver.execute_script("arguments[0].click();", next_week_button)
-                
-                # CRITICAL: Sayfa değişimini bekle
-                time.sleep(2)  # 1→2 saniye - sayfa yüklenmesi için
-                
-                # EXTRA: Tarih değişikliğini bekle
-                for change_wait in range(10):  # Maksimum 5 saniye bekle
-                    try:
-                        new_week_element = self.driver.find_element(By.CLASS_NAME, "yonlendirme-info")
-                        new_week = new_week_element.text.strip()
-                        
-                        if new_week and new_week != previous_week:
-                            logging.info(f"✅ Hafta değişti: '{previous_week}' → '{new_week}'")
+                alert = self.driver.switch_to.alert
+                alert.dismiss()
+                logging.info("🚨 Alert kapatıldı")
+            except:
+                pass
+            
+            # Sayfa refresh
+            self.driver.refresh()
+            time.sleep(2)  # 1→2 saniye - sayfa yüklenmesi için
+            
+            # Maksimum 5 hafta ileriye git
+            for week_attempt in range(5):
+                try:
+                    # IMPROVED: Mevcut hafta aralığını oku - element'in yüklenmesini bekle
+                    current_week_element = WebDriverWait(self.driver, 10).until(
+                        EC.presence_of_element_located((By.CLASS_NAME, "yonlendirme-info"))
+                    )
+                    
+                    # Element text'inin boş olmamasını bekle
+                    current_week = ""
+                    for text_wait in range(5):  # 5 kez dene
+                        current_week = current_week_element.text.strip()
+                        if current_week:  # Boş değilse
                             break
-                        
-                        time.sleep(0.5)  # 0.5 saniye bekle
-                        
-                    except:
-                        time.sleep(0.5)
-                
-                if change_wait == 9:  # Değişim tespit edilemedi
-                    logging.warning(f"⚠️ Hafta değişimi tespit edilemedi, devam ediliyor...")
-                
-            except TimeoutException:
-                logging.error(f"❌ Hafta #{week_attempt+1} element timeout")
-                break
-            except Exception as e:
-                logging.error(f"❌ Hafta #{week_attempt+1} navigasyon hatası: {str(e)}")
-                break
-        
-        logging.error(f"❌ 5 haftada hedef tarih bulunamadı: {self.target_date}")
-        
-        # FINAL DEBUG: Son durumu göster
-        try:
-            final_week_element = self.driver.find_element(By.CLASS_NAME, "yonlendirme-info")
-            final_week = final_week_element.text.strip()
-            logging.info(f"🔍 Final hafta durumu: '{final_week}'")
-        except:
-            logging.error(f"❌ Final hafta durumu okunamadı")
-        
-        return False
+                        time.sleep(0.5)  # 0.5 saniye bekle ve tekrar dene
+                    
+                    logging.info(f"📅 Hafta #{week_attempt+1}: '{current_week}'")
+                    
+                    # Eğer hala boşsa, daha uzun bekle
+                    if not current_week:
+                        logging.warning(f"⚠️ Hafta metni boş, 2 saniye daha bekleniyor...")
+                        time.sleep(2)
+                        current_week = current_week_element.text.strip()
+                        logging.info(f"📅 Hafta #{week_attempt+1} (retry): '{current_week}'")
+                    
+                    # Hedef tarih bu hafta aralığında mı?
+                    if current_week and is_target_date_in_week(self.target_date, current_week):
+                        logging.info(f"✅ HEDEF HAFTA BULUNDU! {current_week}")
+                        return True
+                    
+                    # Değilse sonraki hafta - IMPROVED TIMING
+                    logging.info(f"➡️ Sonraki haftaya geçiliyor...")
+                    
+                    # Önceki hafta bilgisini sakla (değişiklik kontrolü için)
+                    previous_week = current_week
+                    
+                    next_week_button = self.driver.find_element(By.ID, "area-sonraki-hafta")
+                    self.driver.execute_script("arguments[0].click();", next_week_button)
+                    
+                    # CRITICAL: Sayfa değişimini bekle
+                    time.sleep(2)  # 1→2 saniye - sayfa yüklenmesi için
+                    
+                    # EXTRA: Tarih değişikliğini bekle
+                    for change_wait in range(10):  # Maksimum 5 saniye bekle
+                        try:
+                            new_week_element = self.driver.find_element(By.CLASS_NAME, "yonlendirme-info")
+                            new_week = new_week_element.text.strip()
+                            
+                            if new_week and new_week != previous_week:
+                                logging.info(f"✅ Hafta değişti: '{previous_week}' → '{new_week}'")
+                                break
+                            
+                            time.sleep(0.5)  # 0.5 saniye bekle
+                            
+                        except:
+                            time.sleep(0.5)
+                    
+                    if change_wait == 9:  # Değişim tespit edilemedi
+                        logging.warning(f"⚠️ Hafta değişimi tespit edilemedi, devam ediliyor...")
+                    
+                except TimeoutException:
+                    logging.error(f"❌ Hafta #{week_attempt+1} element timeout")
+                    break
+                except Exception as e:
+                    logging.error(f"❌ Hafta #{week_attempt+1} navigasyon hatası: {str(e)}")
+                    break
+            
+            logging.error(f"❌ 5 haftada hedef tarih bulunamadı: {self.target_date}")
+            
+            # FINAL DEBUG: Son durumu göster
+            try:
+                final_week_element = self.driver.find_element(By.CLASS_NAME, "yonlendirme-info")
+                final_week = final_week_element.text.strip()
+                logging.info(f"🔍 Final hafta durumu: '{final_week}'")
+            except:
+                logging.error(f"❌ Final hafta durumu okunamadı")
+            
+            return False
         
     except Exception as e:
         logging.error(f"❌ Hafta navigasyon genel hatası: {str(e)}")
