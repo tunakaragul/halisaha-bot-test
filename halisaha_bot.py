@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-🏟️ Halısaha Rezervasyon Bot - TARGETED TEST VERSION
-25 Haziran 17:00 slotunu hedefle
+🏟️ Halısaha Rezervasyon Bot - FULL WORKING VERSION
+25 Haziran 2025 17:00 hedefli test
 """
 
 import os
@@ -23,365 +23,111 @@ from datetime import datetime, timedelta
 # Logging setup
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(message)s')
 
-def is_target_date_in_week(target_date_str, week_range_str):
-    """Hedef tarih bu hafta aralığında mı?"""
+def parse_turkish_date(date_str):
+    """Türkçe tarihi datetime objesine çevir"""
     try:
-        if target_date_str in week_range_str:
+        month_tr_to_num = {
+            "Ocak": 1, "Şubat": 2, "Mart": 3, "Nisan": 4,
+            "Mayıs": 5, "Haziran": 6, "Temmuz": 7, "Ağustos": 8,
+            "Eylül": 9, "Ekim": 10, "Kasım": 11, "Aralık": 12
+        }
+        
+        parts = date_str.strip().split()
+        day = int(parts[0])
+        month = month_tr_to_num[parts[1]]
+        year = int(parts[2])
+        
+        return datetime(year, month, day)
+    except Exception as e:
+        logging.error(f"❌ Tarih parse hatası: {e}")
+        return None
+
+def is_date_in_range(target_date_str, date_range_str):
+    """Hedef tarihin aralık içinde olup olmadığını kontrol et"""
+    try:
+        logging.info(f"🔍 Tarih kontrolü: '{target_date_str}' in '{date_range_str}'")
+        
+        # Basit string kontrolü önce
+        if target_date_str in date_range_str:
+            logging.info("✅ String eşleşmesi bulundu!")
             return True
         
-        if " - " not in week_range_str:
-            return False
+        # Aralık parse et
+        if " - " not in date_range_str:
+            # Tek tarih
+            target_dt = parse_turkish_date(target_date_str)
+            range_dt = parse_turkish_date(date_range_str)
+            result = target_dt == range_dt if target_dt and range_dt else False
+            logging.info(f"📅 Tek tarih karşılaştırması: {result}")
+            return result
         
-        # "23 Haziran 2025 - 29 Haziran 2025" gibi format
-        range_parts = week_range_str.split(" - ")
-        start_str = range_parts[0].strip()
-        end_str = range_parts[1].strip()
+        # Aralık var
+        range_parts = date_range_str.split(" - ")
+        start_date_str = range_parts[0].strip()
+        end_date_str = range_parts[1].strip()
         
-        # Basit kontrol: "25 Haziran 2025" in "23 Haziran 2025 - 29 Haziran 2025"
-        return target_date_str in week_range_str
+        logging.info(f"📅 Aralık: '{start_date_str}' - '{end_date_str}'")
+        
+        target_dt = parse_turkish_date(target_date_str)
+        start_dt = parse_turkish_date(start_date_str)
+        end_dt = parse_turkish_date(end_date_str)
+        
+        if target_dt and start_dt and end_dt:
+            result = start_dt <= target_dt <= end_dt
+            logging.info(f"📅 Aralık kontrolü: {result} ({start_dt.strftime('%d.%m')} <= {target_dt.strftime('%d.%m')} <= {end_dt.strftime('%d.%m')})")
+            return result
+        
+        logging.error("❌ Tarih parse edilemedi")
+        return False
         
     except Exception as e:
-        logging.error(f"Tarih kontrolü hatası: {str(e)}")
+        logging.error(f"❌ Aralık kontrol hatası: {e}")
         return False
 
-class TargetedTestBrowser:
-    """25 Haziran 17:00 hedefli test browser"""
-    def __init__(self, username, password, base_url, target_facility_url):
-        self.username = username
-        self.password = password
-        self.base_url = base_url
-        self.target_facility_url = target_facility_url
-        self.driver = None
-        self.is_ready = False
-        
-        # HEDEF: 25 Haziran 17:00
-        self.target_date = "25 Haziran 2025"
-        self.target_hours = ["17:00/18:00", "17:00-18:00"]  # Her iki format da dene
-        
-    def quick_setup_and_login(self):
-        """Hızlı setup"""
-        try:
-            logging.info("🔧 Targeted Test Browser setup başladı")
-            
-            chrome_options = Options()
-            chrome_options.add_argument('--headless')
-            chrome_options.add_argument('--no-sandbox')
-            chrome_options.add_argument('--disable-dev-shm-usage')
-            chrome_options.add_argument('--disable-gpu')
-            chrome_options.add_argument('--disable-images')
-            chrome_options.add_argument('--window-size=800,600')
-            chrome_options.add_argument('--disable-popup-blocking')
-            chrome_options.add_argument('--disable-notifications')
-            
-            self.driver = webdriver.Chrome(options=chrome_options)
-            self.driver.set_page_load_timeout(10)
-            self.driver.implicitly_wait(2)
-            
-            # Login
-            self.driver.get(f"{self.base_url}/giris")
-            
-            username_field = WebDriverWait(self.driver, 10).until(
-                EC.presence_of_element_located((By.NAME, "username"))
-            )
-            password_field = self.driver.find_element(By.NAME, "password")
-            
-            self.driver.execute_script(f"arguments[0].value = '{self.username}';", username_field)
-            self.driver.execute_script(f"arguments[0].value = '{self.password}';", password_field)
-            
-            login_button = self.driver.find_element(By.ID, "btnLoginSubmit")
-            self.driver.execute_script("arguments[0].click();", login_button)
-            
-            time.sleep(2)
-            
-            if "giris" not in self.driver.current_url:
-                self.driver.get(self.target_facility_url)
-                time.sleep(2)
-                
-                self.is_ready = True
-                logging.info("✅ Targeted Test Browser HAZIR!")
-                return True
-            else:
-                logging.error("❌ Login başarısız")
-                return False
-                
-        except Exception as e:
-            logging.error(f"❌ Setup hatası: {str(e)}")
-            return False
-    
-    def navigate_to_target_week(self):
-        """25 Haziran'ın olduğu haftaya git - IMPROVED TIMING"""
-        try:
-            logging.info(f"🗓️ Hedef haftayı arıyor: {self.target_date}")
-            
-            # Alert handling
-            try:
-                alert = self.driver.switch_to.alert
-                alert.dismiss()
-                logging.info("🚨 Alert kapatıldı")
-            except:
-                pass
-            
-            # Sayfa refresh
-            self.driver.refresh()
-            time.sleep(2)  # 1→2 saniye - sayfa yüklenmesi için
-            
-            # Maksimum 5 hafta ileriye git
-            for week_attempt in range(5):
-                try:
-                    # IMPROVED: Mevcut hafta aralığını oku - element'in yüklenmesini bekle
-                    current_week_element = WebDriverWait(self.driver, 10).until(
-                        EC.presence_of_element_located((By.CLASS_NAME, "yonlendirme-info"))
-                    )
-                    
-                    # Element text'inin boş olmamasını bekle
-                    current_week = ""
-                    for text_wait in range(5):  # 5 kez dene
-                        current_week = current_week_element.text.strip()
-                        if current_week:  # Boş değilse
-                            break
-                        time.sleep(0.5)  # 0.5 saniye bekle ve tekrar dene
-                    
-                    logging.info(f"📅 Hafta #{week_attempt+1}: '{current_week}'")
-                    
-                    # Eğer hala boşsa, daha uzun bekle
-                    if not current_week:
-                        logging.warning(f"⚠️ Hafta metni boş, 2 saniye daha bekleniyor...")
-                        time.sleep(2)
-                        current_week = current_week_element.text.strip()
-                        logging.info(f"📅 Hafta #{week_attempt+1} (retry): '{current_week}'")
-                    
-                    # Hedef tarih bu hafta aralığında mı?
-                    if current_week and is_target_date_in_week(self.target_date, current_week):
-                        logging.info(f"✅ HEDEF HAFTA BULUNDU! {current_week}")
-                        return True
-                    
-                    # Değilse sonraki hafta - IMPROVED TIMING
-                    logging.info(f"➡️ Sonraki haftaya geçiliyor...")
-                    
-                    # Önceki hafta bilgisini sakla (değişiklik kontrolü için)
-                    previous_week = current_week
-                    
-                    next_week_button = self.driver.find_element(By.ID, "area-sonraki-hafta")
-                    self.driver.execute_script("arguments[0].click();", next_week_button)
-                    
-                    # CRITICAL: Sayfa değişimini bekle
-                    time.sleep(2)  # 1→2 saniye - sayfa yüklenmesi için
-                    
-                    # EXTRA: Tarih değişikliğini bekle
-                    for change_wait in range(10):  # Maksimum 5 saniye bekle
-                        try:
-                            new_week_element = self.driver.find_element(By.CLASS_NAME, "yonlendirme-info")
-                            new_week = new_week_element.text.strip()
-                            
-                            if new_week and new_week != previous_week:
-                                logging.info(f"✅ Hafta değişti: '{previous_week}' → '{new_week}'")
-                                break
-                            
-                            time.sleep(0.5)  # 0.5 saniye bekle
-                            
-                        except:
-                            time.sleep(0.5)
-                    
-                    if change_wait == 9:  # Değişim tespit edilemedi
-                        logging.warning(f"⚠️ Hafta değişimi tespit edilemedi, devam ediliyor...")
-                    
-                except TimeoutException:
-                    logging.error(f"❌ Hafta #{week_attempt+1} element timeout")
-                    break
-                except Exception as e:
-                    logging.error(f"❌ Hafta #{week_attempt+1} navigasyon hatası: {str(e)}")
-                    break
-            
-            logging.error(f"❌ 5 haftada hedef tarih bulunamadı: {self.target_date}")
-            
-            # FINAL DEBUG: Son durumu göster
-            try:
-                final_week_element = self.driver.find_element(By.CLASS_NAME, "yonlendirme-info")
-                final_week = final_week_element.text.strip()
-                logging.info(f"🔍 Final hafta durumu: '{final_week}'")
-            except:
-                logging.error(f"❌ Final hafta durumu okunamadı")
-            
-            return False
-        
-    except Exception as e:
-        logging.error(f"❌ Hafta navigasyon genel hatası: {str(e)}")
-        return False
-    
-    def find_and_reserve_target_slot(self):
-        """25 Haziran 17:00 slotunu bul ve rezerve et"""
-        try:
-            logging.info(f"🎯 Hedef slot aranıyor: {self.target_date} {self.target_hours}")
-            
-            # Tüm slotları bul
-            all_slots = self.driver.find_elements(By.CSS_SELECTOR, "div.lesson.active")
-            logging.info(f"📊 Toplam aktif slot: {len(all_slots)}")
-            
-            if len(all_slots) == 0:
-                logging.warning(f"⚠️ HİÇ AKTİF SLOT YOK!")
-                
-                # Alternatif selectors dene
-                alt_selectors = ["div.lesson", ".lesson", "div[data-hour]"]
-                for selector in alt_selectors:
-                    try:
-                        alt_slots = self.driver.find_elements(By.CSS_SELECTOR, selector)
-                        logging.info(f"🔍 '{selector}': {len(alt_slots)} element")
-                        if len(alt_slots) > 0:
-                            all_slots = alt_slots
-                            break
-                    except:
-                        pass
-            
-            # Hedef slotu ara
-            target_slot = None
-            
-            for i, slot in enumerate(all_slots):
-                try:
-                    date = slot.get_attribute("data-dateformatted") or ""
-                    slot_hour = slot.get_attribute("data-hour") or ""
-                    slot_text = slot.text.strip() or ""
-                    
-                    # Debug: İlk 10 slotu göster
-                    if i < 10:
-                        logging.info(f"  📍 Slot #{i+1}: Tarih='{date}' Saat='{slot_hour}' Text='{slot_text}'")
-                    
-                    # Hedef slot kontrolü
-                    if date == self.target_date and slot_hour in self.target_hours:
-                        target_slot = slot
-                        logging.info(f"🎯 HEDEF SLOT BULUNDU! Slot #{i+1}: {date} - {slot_hour}")
-                        break
-                        
-                except Exception as e:
-                    logging.error(f"❌ Slot #{i+1} okuma hatası: {str(e)}")
-                    continue
-            
-            if not target_slot:
-                logging.error(f"❌ HEDEF SLOT BULUNAMADI: {self.target_date} {self.target_hours}")
-                
-                # Sadece 25 Haziran slotlarını göster
-                logging.info(f"🔍 25 Haziran slotları aranıyor...")
-                for i, slot in enumerate(all_slots):
-                    try:
-                        date = slot.get_attribute("data-dateformatted") or ""
-                        slot_hour = slot.get_attribute("data-hour") or ""
-                        
-                        if "25 Haziran" in date:
-                            logging.info(f"  📅 25 Haziran slot: Saat='{slot_hour}'")
-                    except:
-                        continue
-                
-                return False
-            
-            # HEDEF SLOT REZERVASYONU
-            logging.info(f"💥 Hedef slot rezerve ediliyor...")
-            
-            self.driver.execute_script("arguments[0].scrollIntoView(true);", target_slot)
-            time.sleep(0.5)
-            self.driver.execute_script("arguments[0].click();", target_slot)
-            
-            # Popup bekle ve işle
-            try:
-                popup = WebDriverWait(self.driver, 5).until(
-                    EC.presence_of_element_located((By.CLASS_NAME, "bootbox"))
-                )
-                logging.info(f"✅ Rezervasyon popup'ı açıldı")
-                
-                # Rezerve radio seç
-                rezerve_radio = popup.find_element(By.CSS_SELECTOR, "input[value='basvuru-yap']")
-                self.driver.execute_script("arguments[0].click();", rezerve_radio)
-                logging.info(f"✅ Rezerve radio seçildi")
-                
-                # Devam butonu
-                devam_button = popup.find_element(By.CSS_SELECTOR, "button.btn.btn-blue.devam-et")
-                self.driver.execute_script("arguments[0].click();", devam_button)
-                logging.info(f"✅ Devam butonu tıklandı")
-                
-                time.sleep(1)
-                
-                # Rules checkbox
-                rules_checkbox = self.driver.find_element(By.CSS_SELECTOR, "input[type='checkbox']")
-                self.driver.execute_script("arguments[0].click();", rules_checkbox)
-                logging.info(f"✅ Rules checkbox işaretlendi")
-                
-                # Final Evet butonu
-                self.driver.execute_script("""
-                    var buttons = document.querySelectorAll('button.btn.btn-blue');
-                    for(var i=0; i<buttons.length; i++) {
-                        if(buttons[i].textContent.trim() === 'Evet') {
-                            buttons[i].click();
-                            return true;
-                        }
-                    }
-                """)
-                logging.info(f"✅ Final 'Evet' butonu tıklandı")
-                
-                time.sleep(2)
-                
-                # Başarı kontrolü
-                success = self.check_reservation_success()
-                
-                if success:
-                    logging.info(f"🏆 REZERVASYON BAŞARILI! {self.target_date} 17:00")
-                    return True
+def get_navigation_direction(target_date_str, current_range_str):
+    """Hangi yöne navigate edilecegini belirle"""
+    try:
+        if " - " not in current_range_str:
+            # Tek tarih - basit karşılaştırma
+            target_dt = parse_turkish_date(target_date_str)
+            current_dt = parse_turkish_date(current_range_str)
+            if target_dt and current_dt:
+                if target_dt > current_dt:
+                    return "next"
+                elif target_dt < current_dt:
+                    return "prev"
                 else:
-                    logging.warning(f"❌ Rezervasyon kontrol başarısız")
-                    return False
-                
-            except TimeoutException:
-                logging.error(f"❌ Popup timeout")
-                return False
-            except Exception as e:
-                logging.error(f"❌ Rezervasyon işlem hatası: {str(e)}")
-                return False
-            
-        except Exception as e:
-            logging.error(f"❌ Slot bulma genel hatası: {str(e)}")
-            return False
-    
-    def check_reservation_success(self):
-        """Rezervasyon başarı kontrolü"""
-        try:
-            self.driver.get(f"{self.base_url}/ClubMember/MyReservation.aspx")
-            time.sleep(2)
-            
-            rows = self.driver.find_elements(By.CSS_SELECTOR, "#AreaReservationTable tbody tr")
-            logging.info(f"📋 Rezervasyon tablosunda {len(rows)} satır bulundu")
-            
-            for i, row in enumerate(rows):
-                try:
-                    cells = row.find_elements(By.TAG_NAME, "td")
-                    if len(cells) >= 5:
-                        date_cell = cells[2].text if len(cells) > 2 else ""
-                        hour_cell = cells[3].text if len(cells) > 3 else ""
-                        status_cell = cells[4].text if len(cells) > 4 else ""
-                        
-                        logging.info(f"  📋 Satır #{i+1}: Tarih='{date_cell}' Saat='{hour_cell}' Durum='{status_cell}'")
-                        
-                        # 25 Haziran ve 17:00 kontrolü
-                        if ("25 Haziran" in date_cell or "25.06" in date_cell) and ("17:00" in hour_cell):
-                            if "Ön Onaylı" in status_cell or "Onaylı" in status_cell:
-                                logging.info(f"🏆 BAŞARILI REZERVASYON DOĞRULANDI!")
-                                return True
-                                
-                except Exception as e:
-                    logging.error(f"❌ Satır #{i+1} okuma hatası: {str(e)}")
-                    continue
-            
-            logging.warning(f"❌ Hedef rezervasyon tabloda bulunamadı")
-            return False
-            
-        except Exception as e:
-            logging.error(f"❌ Başarı kontrol hatası: {str(e)}")
-            return False
-    
-    def cleanup(self):
-        if self.driver:
-            try:
-                self.driver.quit()
-            except:
-                pass
+                    return "found"
+            return "next"  # default
+        
+        # Aralık var
+        range_parts = current_range_str.split(" - ")
+        start_date_str = range_parts[0].strip()
+        end_date_str = range_parts[1].strip()
+        
+        target_dt = parse_turkish_date(target_date_str)
+        start_dt = parse_turkish_date(start_date_str)
+        end_dt = parse_turkish_date(end_date_str)
+        
+        if target_dt and start_dt and end_dt:
+            if target_dt < start_dt:
+                logging.info(f"📍 Hedef ({target_dt.strftime('%d.%m')}) aralık başından ({start_dt.strftime('%d.%m')}) önce -> ÖNCEKİ")
+                return "prev"
+            elif target_dt > end_dt:
+                logging.info(f"📍 Hedef ({target_dt.strftime('%d.%m')}) aralık sonundan ({end_dt.strftime('%d.%m')}) sonra -> SONRAKİ")
+                return "next"
+            else:
+                logging.info(f"📍 Hedef ({target_dt.strftime('%d.%m')}) aralık içinde ({start_dt.strftime('%d.%m')}-{end_dt.strftime('%d.%m')}) -> BULUNDU")
+                return "found"
+        
+        # Default fallback
+        return "next"
+        
+    except Exception as e:
+        logging.error(f"❌ Yön belirleme hatası: {e}")
+        return "next"
 
-class TargetedTestBot:
+class WorkingHalisahaBot:
     def __init__(self):
         self.username = os.environ.get('HALISAHA_USERNAME')
         self.password = os.environ.get('HALISAHA_PASSWORD')
@@ -392,9 +138,365 @@ class TargetedTestBot:
         self.base_url = "https://spor.kadikoy.bel.tr"
         self.target_facility_url = "https://spor.kadikoy.bel.tr/spor-salonu/kalamis-spor?activityCategories=2"
         
-        logging.info(f"🎯 TARGETED TEST Bot hazır - Hedef: 25 Haziran 17:00")
+        # HEDEF: 25 Haziran 2025 17:00
+        self.target_date = "25 Haziran 2025"
+        self.target_hours = ["17:00/18:00", "18:00/19:00", "16:00/17:00"]  # Backup saatler
+        
+        self.driver = None
+        
+        logging.info(f"🎯 WORKING Bot hazır - Hedef: {self.target_date} 17:00")
+    
+    def setup_driver(self):
+        """Driver setup - GitHub Actions optimized"""
+        try:
+            logging.info("🔧 Driver setup başladı")
+            
+            chrome_options = Options()
+            chrome_options.add_argument('--headless')
+            chrome_options.add_argument('--no-sandbox')
+            chrome_options.add_argument('--disable-dev-shm-usage')
+            chrome_options.add_argument('--disable-gpu')
+            chrome_options.add_argument('--disable-images')
+            chrome_options.add_argument('--window-size=1920,1080')
+            chrome_options.add_argument('--disable-popup-blocking')
+            chrome_options.add_argument('--disable-notifications')
+            
+            self.driver = webdriver.Chrome(options=chrome_options)
+            self.driver.set_page_load_timeout(15)
+            self.driver.implicitly_wait(3)
+            
+            logging.info("✅ Driver hazır")
+            return True
+            
+        except Exception as e:
+            logging.error(f"❌ Driver setup hatası: {str(e)}")
+            return False
+    
+    def login(self):
+        """Login işlemi"""
+        try:
+            logging.info("🔐 Giriş işlemi başlatılıyor...")
+            
+            self.driver.get(f"{self.base_url}/giris")
+            
+            username_field = WebDriverWait(self.driver, 10).until(
+                EC.presence_of_element_located((By.NAME, "username"))
+            )
+            password_field = self.driver.find_element(By.NAME, "password")
+            
+            username_field.send_keys(self.username)
+            password_field.send_keys(self.password)
+            
+            login_button = self.driver.find_element(By.ID, "btnLoginSubmit")
+            self.driver.execute_script("arguments[0].click();", login_button)
+            
+            time.sleep(3)
+            
+            if "giris" not in self.driver.current_url:
+                logging.info("✅ Giriş başarılı")
+                return True
+            else:
+                logging.error("❌ Giriş başarısız")
+                return False
+                
+        except Exception as e:
+            logging.error(f"❌ Login hatası: {str(e)}")
+            return False
+    
+    def navigate_to_facility(self):
+        """Halısaha sayfasına git"""
+        try:
+            logging.info("🏟️ Halısaha sayfasına yönlendiriliyor...")
+            
+            self.driver.get(self.target_facility_url)
+            time.sleep(5)  # Sayfa yüklenmesi için
+            
+            logging.info(f"✅ Halısaha sayfası: {self.driver.current_url}")
+            return True
+            
+        except Exception as e:
+            logging.error(f"❌ Sayfa yönlendirme hatası: {str(e)}")
+            return False
+    
+    def navigate_to_target_date(self):
+        """Hedef tarihe git - Working version"""
+        try:
+            logging.info(f"🗓️ Hedef tarihe navigasyon: {self.target_date}")
+            
+            # Alert handling
+            try:
+                alert = self.driver.switch_to.alert
+                alert.dismiss()
+                logging.info("🚨 Alert kapatıldı")
+            except:
+                pass
+            
+            # Mevcut tarihi al
+            current_date = self.driver.find_element(By.CLASS_NAME, "yonlendirme-info").text
+            logging.info(f"📅 Başlangıç tarih aralığı: {current_date}")
+            
+            max_attempts = 10
+            current_attempt = 0
+            
+            while current_attempt < max_attempts:
+                try:
+                    current_date = self.driver.find_element(By.CLASS_NAME, "yonlendirme-info").text
+                    logging.info(f"📍 Deneme {current_attempt + 1}: Mevcut tarih aralığı: '{current_date}'")
+                    
+                    if not current_date:
+                        logging.warning("⚠️ Tarih bilgisi yok, bekleniyor...")
+                        time.sleep(2)
+                        current_attempt += 1
+                        continue
+                    
+                    # Hedef tarih kontrolü
+                    if is_date_in_range(self.target_date, current_date):
+                        logging.info("✅ HEDEF TARİH BULUNDU! Aralık içinde.")
+                        return True
+                    
+                    # Hangi yöne gidileceğini belirle
+                    direction = get_navigation_direction(self.target_date, current_date)
+                    
+                    if direction == "found":
+                        logging.info("✅ HEDEF TARİH BULUNDU! (Parse kontrolü)")
+                        return True
+                    elif direction == "prev":
+                        logging.info("⬅️ Önceki haftaya geçiliyor...")
+                        try:
+                            onceki_hafta_button = self.driver.find_element(By.ID, "area-onceki-hafta")
+                            self.driver.execute_script("arguments[0].dispatchEvent(new Event('click'));", onceki_hafta_button)
+                        except Exception as btn_error:
+                            logging.error(f"❌ Önceki hafta butonu hatası: {btn_error}")
+                            break
+                    elif direction == "next":
+                        logging.info("➡️ Sonraki haftaya geçiliyor...")
+                        try:
+                            sonraki_hafta_button = self.driver.find_element(By.ID, "area-sonraki-hafta")
+                            self.driver.execute_script("arguments[0].dispatchEvent(new Event('click'));", sonraki_hafta_button)
+                        except Exception as btn_error:
+                            logging.error(f"❌ Sonraki hafta butonu hatası: {btn_error}")
+                            break
+                    
+                    time.sleep(3)  # Sayfa yüklenmesi için bekle
+                    current_attempt += 1
+                    
+                except Exception as nav_error:
+                    logging.error(f"❌ Navigasyon hatası: {nav_error}")
+                    current_attempt += 1
+                    time.sleep(2)
+            
+            if current_attempt >= max_attempts:
+                logging.error(f"❌ {max_attempts} denemede hedef tarihe ulaşılamadı")
+                return False
+            
+            return True
+            
+        except Exception as e:
+            logging.error(f"❌ Tarih navigasyon genel hatası: {str(e)}")
+            return False
+    
+    def find_and_reserve_slot(self):
+        """Slot bul ve rezerve et - Working version"""
+        try:
+            logging.info(f"🎯 Hedef tarihte, slotlar aranıyor...")
+            time.sleep(3)
+            
+            all_slots = self.driver.find_elements(By.CSS_SELECTOR, "div.lesson.active")
+            logging.info(f"📊 Toplam {len(all_slots)} aktif slot bulundu")
+            
+            # Tüm slotları listele (debug için)
+            logging.info("📋 Mevcut slotlar:")
+            for i, slot in enumerate(all_slots[:10]):  # İlk 10 slot
+                try:
+                    date = slot.get_attribute("data-dateformatted")
+                    hour = slot.get_attribute("data-hour")
+                    logging.info(f"   {i+1:2d}. {date} - {hour}")
+                except:
+                    logging.info(f"   {i+1:2d}. Slot okunamadı")
+            
+            # Hedef slotu ara
+            logging.info(f"🔍 Hedef slot aranıyor: {self.target_date}")
+            target_slot = None
+            found_hour = None
+            
+            for test_hour in self.target_hours:
+                logging.info(f"   🕐 Aranan saat: {test_hour}")
+                for slot in all_slots:
+                    try:
+                        date = slot.get_attribute("data-dateformatted")
+                        hour = slot.get_attribute("data-hour")
+                        
+                        if date == self.target_date and hour == test_hour:
+                            target_slot = slot
+                            found_hour = hour
+                            logging.info(f"🎯 HEDEF SLOT BULUNDU: {date} - {hour}")
+                            break
+                    except:
+                        continue
+                
+                if target_slot:
+                    break
+            
+            if not target_slot:
+                logging.error(f"❌ Hedef slot bulunamadı: {self.target_date} {self.target_hours}")
+                
+                # Sadece hedef tarih slotlarını göster
+                logging.info(f"🔍 {self.target_date} tarihli tüm slotlar:")
+                for i, slot in enumerate(all_slots):
+                    try:
+                        date = slot.get_attribute("data-dateformatted")
+                        hour = slot.get_attribute("data-hour")
+                        if date == self.target_date:
+                            logging.info(f"   📅 {self.target_date} slot: {hour}")
+                    except:
+                        continue
+                
+                return False
+            
+            # REZERVASYON İŞLEMİ
+            logging.info(f"✅ Slot bulundu, rezervasyon işlemi başlatılıyor...")
+            logging.info(f"📍 Slot detayı: {self.target_date} - {found_hour}")
+            
+            # Slot seçimi
+            self.driver.execute_script("arguments[0].click();", target_slot)
+            logging.info("✅ Slot tıklandı")
+            
+            # Pop-up'ın yüklenmesi için bekle
+            time.sleep(3)
+            
+            try:
+                # Pop-up'ın yüklenmesini bekle
+                wait = WebDriverWait(self.driver, 10)
+                popup = wait.until(EC.presence_of_element_located((By.CLASS_NAME, "bootbox")))
+                logging.info("✅ Pop-up yüklendi")
+                
+                # "Rezerve Et" seçeneğini bul
+                rezerve_radio = None
+                selectors = [
+                    "input[value='basvuru-yap']",
+                    "input[name='basvuru-1']",
+                    "div.hover-class input[type='radio']"
+                ]
+                
+                for selector in selectors:
+                    try:
+                        rezerve_radio = popup.find_element(By.CSS_SELECTOR, selector)
+                        if rezerve_radio:
+                            logging.info(f"✅ Rezerve Et seçeneği bulundu: {selector}")
+                            break
+                    except:
+                        continue
+                
+                if rezerve_radio:
+                    self.driver.execute_script("arguments[0].click();", rezerve_radio)
+                    logging.info("✅ Rezerve Et seçeneği seçildi")
+                    
+                    # Devam butonunu bul ve tıkla
+                    devam_button = popup.find_element(By.CSS_SELECTOR, "button.btn.btn-blue.devam-et")
+                    self.driver.execute_script("arguments[0].click();", devam_button)
+                    logging.info("✅ Devam butonuna tıklandı")
+                    
+                    # İkinci pop-up için bekle
+                    time.sleep(2)
+                    
+                    # Rezervasyon kuralları checkbox'ını bul
+                    rules_checkbox = self.driver.find_element(By.CSS_SELECTOR, "input[type='checkbox']")
+                    self.driver.execute_script("arguments[0].click();", rules_checkbox)
+                    logging.info("✅ Rezervasyon kuralları kabul edildi")
+                    
+                    # Evet butonunu bul ve tıkla
+                    try:
+                        # JavaScript ile tıklama
+                        self.driver.execute_script("""
+                            var buttons = document.querySelectorAll('button.btn.btn-blue');
+                            for(var i=0; i<buttons.length; i++) {
+                                if(buttons[i].textContent.trim() === 'Evet') {
+                                    buttons[i].click();
+                                    return true;
+                                }
+                            }
+                        """)
+                        logging.info("✅ JavaScript ile Evet butonuna tıklandı")
+                        
+                        # Tıklama sonrası bekle
+                        time.sleep(5)
+                        
+                    except Exception as e:
+                        logging.error(f"❌ Evet butonuna tıklarken hata: {str(e)}")
+                    
+                    # Rezervasyon kontrolü
+                    time.sleep(2)
+                    success = self.check_reservation_success(found_hour)
+                    
+                    if success:
+                        logging.info("🎉 ✅ REZERVASYON BAŞARIYLA TAMAMLANDI!")
+                        return True
+                    else:
+                        logging.error("❌ Rezervasyon tamamlanamadı veya doğrulanamadı!")
+                        return False
+                else:
+                    logging.error("❌ Rezerve Et seçeneği bulunamadı")
+                    return False
+                    
+            except Exception as popup_error:
+                logging.error(f"❌ Pop-up işlemlerinde hata: {str(popup_error)}")
+                return False
+            
+        except Exception as e:
+            logging.error(f"❌ Slot bulma/rezervasyon genel hatası: {str(e)}")
+            return False
+    
+    def check_reservation_success(self, target_hour):
+        """Rezervasyonun başarılı olup olmadığını kontrol et"""
+        try:
+            logging.info(f"🔍 Rezervasyon kontrolü: {self.target_date} - {target_hour}")
+            
+            # Rezervasyonlarım sayfasına git
+            self.driver.get(f"{self.base_url}/ClubMember/MyReservation.aspx")
+            time.sleep(3)
+            
+            # Tablodaki tüm satırları bul
+            rows = self.driver.find_elements(By.CSS_SELECTOR, "#AreaReservationTable tbody tr")
+            logging.info(f"📊 Tabloda {len(rows)} satır bulundu")
+            
+            # Tarih formatını rezervasyon kontrol için düzenle
+            check_date = "25.06.2025"  # 25 Haziran 2025
+            check_hour = target_hour.replace("/", " - ") if target_hour else "17:00 - 18:00"
+            
+            logging.info(f"🔍 Aranan: {check_date} - {check_hour}")
+            
+            # Her satırı kontrol et
+            for i, row in enumerate(rows):
+                try:
+                    cells = row.find_elements(By.TAG_NAME, "td")
+                    if len(cells) >= 5:
+                        date_cell = cells[2].text if len(cells) > 2 else ""
+                        hour_cell = cells[3].text if len(cells) > 3 else ""
+                        status = cells[4].text if len(cells) > 4 else ""
+                        
+                        logging.info(f"📋 Satır {i+1}: {date_cell} | {hour_cell} | {status}")
+                        
+                        # Tarih ve saat kontrolü
+                        if (check_date in date_cell or "25.06" in date_cell or "25 Haziran" in date_cell) and "17:00" in hour_cell:
+                            logging.info(f"✅ Rezervasyon bulundu:")
+                            logging.info(f"   Tarih: {date_cell}")
+                            logging.info(f"   Saat: {hour_cell}")
+                            logging.info(f"   Durum: {status}")
+                            
+                            if "Ön Onaylı" in status or "Onaylı" in status:
+                                return True
+                except Exception as row_error:
+                    logging.error(f"⚠️ Satır {i+1} okuma hatası: {str(row_error)}")
+                    continue
+            
+            return False
+            
+        except Exception as e:
+            logging.error(f"❌ Rezervasyon kontrolü hatası: {str(e)}")
+            return False
     
     def send_email(self, subject, message):
+        """Email gönder"""
         try:
             email = os.environ.get('NOTIFICATION_EMAIL')
             password = os.environ.get('EMAIL_PASSWORD')
@@ -419,74 +521,101 @@ class TargetedTestBot:
         except Exception as e:
             logging.error(f"E-posta hatası: {str(e)}")
     
-    def run_targeted_test(self):
-        """TARGETED TEST ana fonksiyon"""
-        browser = None
+    def run_working_test(self):
+        """WORKING TEST ana fonksiyon"""
+        start_time = time.time()
         
         try:
-            logging.info(f"🚀 TARGETED TEST başladı - 25 Haziran 17:00 hedefi")
+            logging.info("🚀 WORKING HALISAHA BOT başladı")
+            logging.info(f"🎯 Hedef: {self.target_date} 17:00")
+            logging.info("="*60)
             
-            # Browser setup
-            browser = TargetedTestBrowser(
-                self.username, self.password, 
-                self.base_url, self.target_facility_url
-            )
+            # 1. Driver setup
+            if not self.setup_driver():
+                raise Exception("Driver setup başarısız")
             
-            if not browser.quick_setup_and_login():
-                logging.error("❌ Browser setup başarısız!")
-                self.send_email("❌ TARGETED TEST Hatası", "Browser setup başarısız!")
-                return
+            # 2. Login
+            if not self.login():
+                raise Exception("Login başarısız")
             
-            # Hedef haftaya git
-            if not browser.navigate_to_target_week():
-                logging.error("❌ Hedef hafta bulunamadı!")
-                self.send_email("❌ TARGETED TEST Hatası", "25 Haziran haftası bulunamadı!")
-                return
+            # 3. Halısaha sayfasına git
+            if not self.navigate_to_facility():
+                raise Exception("Sayfa yönlendirme başarısız")
             
-            # Hedef slotu bul ve rezerve et
-            if browser.find_and_reserve_target_slot():
-                logging.info(f"🏆 TARGETED TEST BAŞARILI!")
+            # 4. Hedef tarihe git
+            if not self.navigate_to_target_date():
+                raise Exception("Hedef tarih bulunamadı")
+            
+            # 5. Slot bul ve rezerve et
+            if self.find_and_reserve_slot():
+                elapsed_time = time.time() - start_time
+                
+                logging.info("🏆 WORKING BOT BAŞARILI!")
+                logging.info(f"⏱️ Toplam süre: {elapsed_time:.0f} saniye")
                 
                 self.send_email(
-                    f"🏆 TARGETED TEST BAŞARILI!",
-                    f"""🎯 25 Haziran 17:00 REZERVASYON BAŞARILI!
+                    "🏆 25 Haziran 17:00 REZERVASYON BAŞARILI!",
+                    f"""🎉 WORKING HALISAHA BOT BAŞARILI!
                     
-✅ Browser: Çalışıyor
-✅ Login: Başarılı  
-✅ Week Navigation: Çalışıyor
-✅ Slot Detection: Çalışıyor
-✅ Reservation: 25 Haziran 17:00 BAŞARILI!
+📅 Tarih: {self.target_date}
+🕐 Saat: 17:00-18:00
+⏱️ Süre: {elapsed_time:.0f} saniye
+🏟️ Tesis: Kalamış Spor Tesisi
+⚽ Alan: Halı Saha
+✅ Durum: Ön Onaylı
 
-Targeted test mükemmel çalıştı! 🚀
-Ana bot için hazır! 🎯"""
+🚀 Working bot mükemmel çalıştı!
+Ana production'a hazır! 🎯"""
                 )
             else:
-                logging.warning(f"❌ TARGETED TEST - Hedef slot rezerve edilemedi")
+                elapsed_time = time.time() - start_time
+                
+                logging.warning("❌ Slot bulunamadı veya rezerve edilemedi")
                 
                 self.send_email(
-                    f"📊 TARGETED TEST Raporu",
-                    f"""🔍 TARGETED TEST RAPORU
+                    "📊 25 Haziran 17:00 Test Raporu",
+                    f"""🔍 WORKING BOT TEST RAPORU
                     
-✅ Browser: Çalışıyor
+📅 Tarih: {self.target_date}
+🕐 Hedef Saat: 17:00-18:00
+⏱️ Süre: {elapsed_time:.0f} saniye
+
+✅ Driver: Çalışıyor
 ✅ Login: Başarılı
-✅ Week Navigation: Çalışıyor
-❌ Target Slot: 25 Haziran 17:00 bulunamadı/rezerve edilemedi
+✅ Navigation: Çalışıyor
+✅ Date Navigation: Çalışıyor
+❌ Target Slot: 17:00 bulunamadı
 
 25 Haziran 17:00 slot'u mevcut değil veya dolu.
-Debug log'larını incele! 📋"""
+Working bot logic'i çalışıyor! 📋"""
                 )
             
         except Exception as e:
-            logging.error(f"TARGETED TEST Ana hata: {str(e)}")
-            self.send_email("❌ TARGETED TEST Hatası", f"Hata: {str(e)}")
+            elapsed_time = time.time() - start_time
+            logging.error(f"WORKING BOT Ana hata ({elapsed_time:.0f}s): {str(e)}")
+            self.send_email("❌ WORKING BOT Hatası", f"Hata ({elapsed_time:.0f}s): {str(e)}")
         
         finally:
-            if browser:
-                browser.cleanup()
+            # Cleanup
+            if self.driver:
+                try:
+                    logging.info(f"📍 Son URL: {self.driver.current_url}")
+                    self.driver.save_screenshot("working_bot_result.png")
+                    logging.info("📸 Ekran görüntüsü kaydedildi")
+                except:
+                    logging.warning("⚠️ Ekran görüntüsü kaydedilemedi")
+                
+                self.driver.quit()
+                logging.info("🔒 Browser kapatıldı")
 
 def main():
-    bot = TargetedTestBot()
-    bot.run_targeted_test()
+    logging.info("🏟️ WORKING Halısaha Bot")
+    logging.info("🎯 Hedef: 25 Haziran 2025 (17:00-18:00)")
+    logging.info("🔧 Base: Çalışan eski kod mantığı")
+    logging.info("="*60)
+    
+    bot = WorkingHalisahaBot()
+    bot.run_working_test()
 
 if __name__ == "__main__":
     main()
